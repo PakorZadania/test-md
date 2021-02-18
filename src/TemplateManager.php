@@ -2,8 +2,9 @@
 
 class TemplateManager
 {
-    private $_quoteFromRepository;
+    private $quoteFromRepository;
     private $usefulObject;
+    private $destination;
 
     public function getTemplateComputed(Template $tpl, array $data)
     {
@@ -20,24 +21,13 @@ class TemplateManager
 
     private function computeText($text, array $data)
     {
-        /**
-         * @var Quote|null $quote
-         */
+        /** @var Quote|null $quote */
         $quote = (isset($data['quote']) and $data['quote'] instanceof Quote) ? $data['quote'] : null;
-
         if ($quote) {
             $this->updateTextByQuote($quote, $text);
-
-            if(strpos($text, '[quote:destination_link]') !== false){
-                $destination = DestinationRepository::getInstance()->getById($quote->destinationId);
-            }
         }
 
-        if (isset($destination))
-            $this->addContentToTemplateTag($text, '[quote:destination_link]', $this->usefulObject->url . '/' . $destination->countryName . '/quote/' . $this->_quoteFromRepository->id);
-        else
-            $this->addContentToTemplateTag($text, '[quote:destination_link]', '');
-
+        $this->addDestinationLink($text);
 
         /** @var User $user */
         $user = $this->getUser($data);
@@ -51,15 +41,23 @@ class TemplateManager
     private function updateTextByQuote(Quote $quote, &$text)
     {
         /** @var Quote $_quoteFromRepository */
-        $this->_quoteFromRepository = QuoteRepository::getInstance()->getById($quote->id);
+        $this->quoteFromRepository = QuoteRepository::getInstance()->getById($quote->id);
         /** @var Site $usefulObject */
         $this->usefulObject = SiteRepository::getInstance()->getById($quote->siteId);
-        /** @var  Destination $destinationOfQuote */
+        /** @var Destination $destinationOfQuote */
         $destinationOfQuote = DestinationRepository::getInstance()->getById($quote->destinationId);
 
-        $this->addContentToTemplateTag($text, '[quote:summary_html]', Quote::renderHtml($this->_quoteFromRepository));
-        $this->addContentToTemplateTag($text, '[quote:summary]', Quote::renderText($this->_quoteFromRepository));
+        $this->destination = DestinationRepository::getInstance()->getById($quote->destinationId);
+
+        $this->addContentToTemplateTag($text, '[quote:summary_html]', Quote::renderHtml($this->quoteFromRepository));
+        $this->addContentToTemplateTag($text, '[quote:summary]', Quote::renderText($this->quoteFromRepository));
         $this->addContentToTemplateTag($text, '[quote:destination_name]', $destinationOfQuote->countryName);
+    }
+
+    private function addDestinationLink(&$text)
+    {
+        $destinationLink = isset($this->destination) ? $this->usefulObject->url . '/' . $this->destination->countryName . '/quote/' . $this->quoteFromRepository->id : '';
+        $this->addContentToTemplateTag($text, '[quote:destination_link]', $destinationLink);
     }
 
     /**
@@ -68,8 +66,8 @@ class TemplateManager
      */
     private function getUser(array $data)
     {
-        $APPLICATION_CONTEXT = ApplicationContext::getInstance();
-        return (isset($data['user']) and ($data['user'] instanceof User)) ? $data['user'] : $APPLICATION_CONTEXT->getCurrentUser();
+        $applicationContext = ApplicationContext::getInstance();
+        return (isset($data['user']) and ($data['user'] instanceof User)) ? $data['user'] : $applicationContext->getCurrentUser();
     }
 
     private function addContentToTemplateTag(&$template, $tag, $content)
