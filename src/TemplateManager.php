@@ -1,7 +1,11 @@
 <?php
 
+use Service\TemplateBuilder;
+
 class TemplateManager
 {
+    /** @var TemplateBuilder $templateBuilder */
+
     private $quoteFromRepository;
     private $usefulObject;
     private $destination;
@@ -21,24 +25,27 @@ class TemplateManager
 
     private function computeText($text, array $data)
     {
+        /** @var TemplateBuilder $templateBuilder */
+        $templateBuilder = new TemplateBuilder();
+
         /** @var Quote|null $quote */
         $quote = (isset($data['quote']) and $data['quote'] instanceof Quote) ? $data['quote'] : null;
         if ($quote) {
-            $this->updateTextByQuote($quote, $text);
+            $this->updateTextByQuote($quote, $templateBuilder);
         }
 
-        $this->addDestinationLink($text);
+        $this->addDestinationLink($templateBuilder);
 
         /** @var User $user */
         $user = $this->getUser($data);
         if($user) {
-            $this->addContentToTemplateTag($text, '[user:first_name]', ucfirst(mb_strtolower($user->firstname)));
+            $templateBuilder->setFirstName($user->firstname);
         }
 
-        return $text;
+        return $templateBuilder->execute($text);
     }
 
-    private function updateTextByQuote(Quote $quote, &$text)
+    private function updateTextByQuote(Quote $quote, TemplateBuilder &$templateBuilder)
     {
         /** @var Quote $_quoteFromRepository */
         $this->quoteFromRepository = QuoteRepository::getInstance()->getById($quote->id);
@@ -49,15 +56,15 @@ class TemplateManager
 
         $this->destination = DestinationRepository::getInstance()->getById($quote->destinationId);
 
-        $this->addContentToTemplateTag($text, '[quote:summary_html]', Quote::renderHtml($this->quoteFromRepository));
-        $this->addContentToTemplateTag($text, '[quote:summary]', Quote::renderText($this->quoteFromRepository));
-        $this->addContentToTemplateTag($text, '[quote:destination_name]', $destinationOfQuote->countryName);
+        $templateBuilder->setSummaryHtml(Quote::renderHtml($this->quoteFromRepository));
+        $templateBuilder->setSummary(Quote::renderText($this->quoteFromRepository));
+        $templateBuilder->setDestinationName($destinationOfQuote->countryName);
     }
 
-    private function addDestinationLink(&$text)
+    private function addDestinationLink(TemplateBuilder &$templateBuilder)
     {
         $destinationLink = isset($this->destination) ? $this->usefulObject->url . '/' . $this->destination->countryName . '/quote/' . $this->quoteFromRepository->id : '';
-        $this->addContentToTemplateTag($text, '[quote:destination_link]', $destinationLink);
+        $templateBuilder->setDestinationLink($destinationLink);
     }
 
     /**
