@@ -4,6 +4,22 @@ use Service\TemplateBuilder;
 
 class TemplateManager
 {
+    /** @var TemplateBuilder $templateBuilder */
+    private $templateBuilder;
+
+    /**
+     * TemplateManager constructor.
+     */
+    public function __construct()
+    {
+        $this->templateBuilder = new TemplateBuilder();
+    }
+
+    /**
+     * @param Template $tpl
+     * @param array $data
+     * @return Template
+     */
     public function getTemplateComputed(Template $tpl, array $data)
     {
         if (!$tpl) {
@@ -17,27 +33,28 @@ class TemplateManager
         return $replaced;
     }
 
+    /**
+     * @param $text
+     * @param array $data
+     * @return string
+     */
     private function computeText($text, array $data)
     {
-        /** @var TemplateBuilder $templateBuilder */
-        $templateBuilder = new TemplateBuilder();
-
         /** @var Quote|null $quote */
         $quote = (isset($data['quote']) and $data['quote'] instanceof Quote) ? $data['quote'] : null;
         if ($quote) {
-            $this->updateTextByQuote($quote, $templateBuilder);
+            $this->updateTemplateByQuote($quote);
         }
 
-        /** @var User $user */
-        $user = $this->getUser($data);
-        if($user) {
-            $templateBuilder->setFirstName($user->firstname);
-        }
+        $this->updateTemplateByUser($data);
 
-        return $templateBuilder->execute($text);
+        return $this->templateBuilder->execute($text);
     }
 
-    private function updateTextByQuote(Quote $quote, TemplateBuilder &$templateBuilder)
+    /**
+     * @param Quote $quote
+     */
+    private function updateTemplateByQuote(Quote $quote)
     {
         /** @var Quote $quoteFromRepository */
         $quoteFromRepository = QuoteRepository::getInstance()->getById($quote->id);
@@ -48,21 +65,25 @@ class TemplateManager
 
         $destination = DestinationRepository::getInstance()->getById($quote->destinationId);
 
-        $templateBuilder->setSummaryHtml(Quote::renderHtml($quoteFromRepository));
-        $templateBuilder->setSummary(Quote::renderText($quoteFromRepository));
-        $templateBuilder->setDestinationName($destinationOfQuote->countryName);
+        $this->templateBuilder->setSummaryHtml(Quote::renderHtml($quoteFromRepository));
+        $this->templateBuilder->setSummary(Quote::renderText($quoteFromRepository));
+        $this->templateBuilder->setDestinationName($destinationOfQuote->countryName);
 
         $destinationLink = $site->url . '/' . $destination->countryName . '/quote/' . $quoteFromRepository->id;
-        $templateBuilder->setDestinationLink($destinationLink);
+        $this->templateBuilder->setDestinationLink($destinationLink);
     }
 
     /**
      * @param array $data
-     * @return User
+     * @return void
      */
-    private function getUser(array $data)
+    private function updateTemplateByUser(array $data)
     {
         $applicationContext = ApplicationContext::getInstance();
-        return (isset($data['user']) and ($data['user'] instanceof User)) ? $data['user'] : $applicationContext->getCurrentUser();
+        $user = (isset($data['user']) and ($data['user'] instanceof User)) ? $data['user'] : $applicationContext->getCurrentUser();
+
+        if($user) {
+            $this->templateBuilder->setFirstName($user->firstname);
+        }
     }
 }
