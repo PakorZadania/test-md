@@ -4,12 +4,6 @@ use Service\TemplateBuilder;
 
 class TemplateManager
 {
-    /** @var TemplateBuilder $templateBuilder */
-
-    private $quoteFromRepository;
-    private $usefulObject;
-    private $destination;
-
     public function getTemplateComputed(Template $tpl, array $data)
     {
         if (!$tpl) {
@@ -34,8 +28,6 @@ class TemplateManager
             $this->updateTextByQuote($quote, $templateBuilder);
         }
 
-        $this->addDestinationLink($templateBuilder);
-
         /** @var User $user */
         $user = $this->getUser($data);
         if($user) {
@@ -47,23 +39,20 @@ class TemplateManager
 
     private function updateTextByQuote(Quote $quote, TemplateBuilder &$templateBuilder)
     {
-        /** @var Quote $_quoteFromRepository */
-        $this->quoteFromRepository = QuoteRepository::getInstance()->getById($quote->id);
-        /** @var Site $usefulObject */
-        $this->usefulObject = SiteRepository::getInstance()->getById($quote->siteId);
+        /** @var Quote $quoteFromRepository */
+        $quoteFromRepository = QuoteRepository::getInstance()->getById($quote->id);
+        /** @var Site $site */
+        $site = SiteRepository::getInstance()->getById($quote->siteId);
         /** @var Destination $destinationOfQuote */
         $destinationOfQuote = DestinationRepository::getInstance()->getById($quote->destinationId);
 
-        $this->destination = DestinationRepository::getInstance()->getById($quote->destinationId);
+        $destination = DestinationRepository::getInstance()->getById($quote->destinationId);
 
-        $templateBuilder->setSummaryHtml(Quote::renderHtml($this->quoteFromRepository));
-        $templateBuilder->setSummary(Quote::renderText($this->quoteFromRepository));
+        $templateBuilder->setSummaryHtml(Quote::renderHtml($quoteFromRepository));
+        $templateBuilder->setSummary(Quote::renderText($quoteFromRepository));
         $templateBuilder->setDestinationName($destinationOfQuote->countryName);
-    }
 
-    private function addDestinationLink(TemplateBuilder &$templateBuilder)
-    {
-        $destinationLink = isset($this->destination) ? $this->usefulObject->url . '/' . $this->destination->countryName . '/quote/' . $this->quoteFromRepository->id : '';
+        $destinationLink = $site->url . '/' . $destination->countryName . '/quote/' . $quoteFromRepository->id;
         $templateBuilder->setDestinationLink($destinationLink);
     }
 
@@ -75,12 +64,5 @@ class TemplateManager
     {
         $applicationContext = ApplicationContext::getInstance();
         return (isset($data['user']) and ($data['user'] instanceof User)) ? $data['user'] : $applicationContext->getCurrentUser();
-    }
-
-    private function addContentToTemplateTag(&$template, $tag, $content)
-    {
-        if (strpos($template, $tag) !== false) {
-            $template = str_replace($tag, $content, $template);
-        }
     }
 }
