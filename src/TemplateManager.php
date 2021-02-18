@@ -20,57 +20,62 @@ class TemplateManager
 
     private function computeText($text, array $data)
     {
-        $APPLICATION_CONTEXT = ApplicationContext::getInstance();
-
+        /**
+         * @var Quote|null $quote
+         */
         $quote = (isset($data['quote']) and $data['quote'] instanceof Quote) ? $data['quote'] : null;
 
-        if ($quote)
-        {
-            $_quoteFromRepository = QuoteRepository::getInstance()->getById($quote->id);
-            $usefulObject = SiteRepository::getInstance()->getById($quote->siteId);
-            $destinationOfQuote = DestinationRepository::getInstance()->getById($quote->destinationId);
+        if ($quote) {
+            $this->updateTextByQuote($quote, $text);
 
             if(strpos($text, '[quote:destination_link]') !== false){
                 $destination = DestinationRepository::getInstance()->getById($quote->destinationId);
             }
-
-            $containsSummaryHtml = strpos($text, '[quote:summary_html]');
-            $containsSummary     = strpos($text, '[quote:summary]');
-
-            if ($containsSummaryHtml !== false || $containsSummary !== false) {
-                if ($containsSummaryHtml !== false) {
-                    $text = str_replace(
-                        '[quote:summary_html]',
-                        Quote::renderHtml($_quoteFromRepository),
-                        $text
-                    );
-                }
-                if ($containsSummary !== false) {
-                    $text = str_replace(
-                        '[quote:summary]',
-                        Quote::renderText($_quoteFromRepository),
-                        $text
-                    );
-                }
-            }
-
-            (strpos($text, '[quote:destination_name]') !== false) and $text = str_replace('[quote:destination_name]',$destinationOfQuote->countryName,$text);
         }
 
         if (isset($destination))
-            $text = str_replace('[quote:destination_link]', $usefulObject->url . '/' . $destination->countryName . '/quote/' . $_quoteFromRepository->id, $text);
+            $this->addContentToTemplateTag($text, '[quote:destination_link]', $this->usefulObject->url . '/' . $destination->countryName . '/quote/' . $this->_quoteFromRepository->id);
         else
-            $text = str_replace('[quote:destination_link]', '', $text);
+            $this->addContentToTemplateTag($text, '[quote:destination_link]', '');
 
-        /*
-         * USER
-         * [user:*]
-         */
-        $_user  = (isset($data['user'])  and ($data['user']  instanceof User))  ? $data['user']  : $APPLICATION_CONTEXT->getCurrentUser();
-        if($_user) {
-            (strpos($text, '[user:first_name]') !== false) and $text = str_replace('[user:first_name]'       , ucfirst(mb_strtolower($_user->firstname)), $text);
+
+        /** @var User $user */
+        $user = $this->getUser($data);
+        if($user) {
+            $this->addContentToTemplateTag($text, '[user:first_name]', ucfirst(mb_strtolower($user->firstname)));
         }
 
         return $text;
+    }
+
+    private function updateTextByQuote(Quote $quote, &$text)
+    {
+        /** @var Quote $_quoteFromRepository */
+        $this->_quoteFromRepository = QuoteRepository::getInstance()->getById($quote->id);
+        /** @var Site $usefulObject */
+        $this->usefulObject = SiteRepository::getInstance()->getById($quote->siteId);
+        /** @var  Destination $destinationOfQuote */
+        $destinationOfQuote = DestinationRepository::getInstance()->getById($quote->destinationId);
+
+        $this->addContentToTemplateTag($text, '[quote:summary_html]', Quote::renderHtml($this->_quoteFromRepository));
+        $this->addContentToTemplateTag($text, '[quote:summary]', Quote::renderText($this->_quoteFromRepository));
+        $this->addContentToTemplateTag($text, '[quote:destination_name]', $destinationOfQuote->countryName);
+    }
+
+    /**
+     * @param array $data
+     * @return User
+     */
+    private function getUser(array $data)
+    {
+        $APPLICATION_CONTEXT = ApplicationContext::getInstance();
+        return (isset($data['user']) and ($data['user'] instanceof User)) ? $data['user'] : $APPLICATION_CONTEXT->getCurrentUser();
+    }
+
+    private function addContentToTemplateTag(&$template, $tag, $content)
+    {
+        if (strpos($template, $tag) !== false) {
+            $template = str_replace($tag, $content, $template);
+        }
     }
 }
